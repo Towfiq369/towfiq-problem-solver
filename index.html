@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Towfiq's Problem solver</title>
+    <!-- Tailwind CSS ka upyog behtar design ke liye -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* File input ko custom design dene ke liye */
+        #image-upload-input {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4 sm:p-6 lg:p-8">
+    <div class="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 lg:p-10 w-full max-w-2xl text-center flex flex-col items-center">
+        <!-- App ka title -->
+        <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-800 mb-2">TOWFIQ'S PROBLEM SOLVER</h1>
+        <!-- App ka subtitle -->
+        <p class="text-gray-500 mb-6 sm:mb-8 text-base sm:text-lg">Bangla, English, Math, Physics, Chemistry, Bio, ict etc problem solver</p>
+
+        <!-- Prashn likhne ka area -->
+        <textarea id="question-input" rows="6" placeholder="Write your question in any language..."
+            class="w-full p-4 text-gray-700 bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 resize-none mb-4"></textarea>
+
+        <!-- Image upload aur preview section -->
+        <div class="w-full flex flex-col sm:flex-row items-center gap-4 mb-4">
+            <!-- Image upload button -->
+            <label for="image-upload-input" class="w-full sm:w-1/2 cursor-pointer bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-xl transition-all duration-300 text-center">
+                Upload your question pic
+                <!-- File input jo chupa hua hai -->
+                <input type="file" id="image-upload-input" accept="image/*">
+            </label>
+            <!-- Image preview container -->
+            <div id="image-preview-container" class="w-full sm:w-1/2 hidden bg-gray-50 p-2 rounded-xl border border-gray-300">
+                <img id="image-preview" src="#" alt="Uploaded Image Preview" class="w-full h-auto rounded-lg">
+                <!-- Image hatane ka button -->
+                <button id="clear-image-button" class="mt-2 w-full text-sm text-red-500 hover:text-red-700">Delete your photo</button>
+            </div>
+        </div>
+
+        <!-- Samadhan prapt karne ka button -->
+        <button id="solve-button"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl shadow-lg transition-all duration-300 transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            Solve the question
+        </button>
+
+        <!-- Loading indicator -->
+        <div id="loading-indicator" class="hidden mt-6 flex items-center justify-center">
+            <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        </div>
+
+        <!-- Samadhan dikhane ka area -->
+        <div id="answer-container" class="hidden mt-6 p-4 sm:p-6 bg-gray-50 border border-gray-200 rounded-xl text-left overflow-x-auto text-sm sm:text-base leading-relaxed whitespace-pre-wrap">
+            <p id="answer-text" class="text-gray-800"></p>
+        </div>
+    </div>
+
+    <script>
+        // API key jo user ne di hai
+        const apiKey = "AIzaSyDHTjcC-Ya57anfxkjSoQqEPYwjHW6MmTA";
+
+        // Zaroori DOM elements ko chunna
+        const questionInput = document.getElementById('question-input');
+        const imageUploadInput = document.getElementById('image-upload-input');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        const imagePreview = document.getElementById('image-preview');
+        const clearImageButton = document.getElementById('clear-image-button');
+        const solveButton = document.getElementById('solve-button');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const answerContainer = document.getElementById('answer-container');
+        const answerText = document.getElementById('answer-text');
+
+        let base64Image = null; // Uploaded image data store karne ke liye
+
+        // Image upload event listener
+        imageUploadInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                // File ko Base64 format mein padhein
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    base64Image = e.target.result.split(',')[1]; // Sirf Base64 data nikaalein
+                    imagePreview.src = e.target.result;
+                    imagePreviewContainer.classList.remove('hidden');
+                    // API ke liye mimeType ko sahi se set karein
+                    base64Image.mimeType = file.type;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Image hatane ka button click listener
+        clearImageButton.addEventListener('click', () => {
+            imageUploadInput.value = '';
+            imagePreview.src = '#';
+            base64Image = null;
+            imagePreviewContainer.classList.add('hidden');
+        });
+
+        // Samadhan button click listener
+        solveButton.addEventListener('click', async () => {
+            const userQuestion = questionInput.value.trim();
+
+            // Check karein ki user ne kuch input diya hai ya nahi
+            if (userQuestion === "" && base64Image === null) {
+                answerText.textContent = "Kripya ek prashn likhein ya ek photo upload karein.";
+                answerContainer.classList.remove('hidden');
+                return;
+            }
+
+            // UI ko loading state mein laayein
+            solveButton.disabled = true;
+            solveButton.textContent = "Your answer is creating...";
+            loadingIndicator.classList.remove('hidden');
+            answerContainer.classList.add('hidden');
+            answerText.textContent = "";
+
+            try {
+                // Gemini API ka endpoint
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                // System instructions AI ke liye
+                const systemPrompt = `Aap ek madadgaar aur visheshagya shikshak hain jo samasyao ka spasht aur step-by-step samadhan pradan karte hain. Aapki visheshagyata Bangla, English, Mathematics, Physics, Chemistry, aur Biology mein hai. Samadhan dete samay, avadharanao ko spasht roop se samjhaein. Yadi upyogakarta ka prashn Bangla mein hai, toh Bangla mein jawab dein. Anyatha, English mein jawab dein. Code ya images ke saath jawab na dein.`;
+
+                // API payload banayein
+                const contentParts = [];
+                // Agar image hai toh usse payload mein jodein
+                if (base64Image) {
+                    contentParts.push({
+                        inlineData: {
+                            mimeType: "image/jpeg", // Ya file ka original type
+                            data: base64Image
+                        }
+                    });
+                }
+                // Agar text hai toh usse payload mein jodein
+                if (userQuestion !== "") {
+                    contentParts.push({ text: userQuestion });
+                }
+
+                // Payload object
+                const payload = {
+                    contents: [{ parts: contentParts }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                };
+
+                // API request bhejein
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                // Error handling
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`API error: ${JSON.stringify(errorData)}`);
+                }
+
+                // Response ko parse karein
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "Maaf kijiye, koi samadhan nahi mil paya. Kripya dobara prayas karein.";
+                answerText.textContent = text;
+                answerContainer.classList.remove('hidden');
+
+            } catch (error) {
+                console.error('Error:', error);
+                answerText.textContent = `Ek error hua: ${error.message}. Kripya dobara prayas karein.`;
+                answerContainer.classList.remove('hidden');
+            } finally {
+                // UI ko dobara default state mein laayein
+                solveButton.disabled = false;
+                solveButton.textContent = "Samadhan Prapt Karein";
+                loadingIndicator.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
